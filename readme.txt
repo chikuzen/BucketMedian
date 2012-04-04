@@ -56,3 +56,6 @@ FAQ :
 
     Q: Where can I get the source code ?
     A: https://github.com/chikuzen/BucketMedian/
+
+changelog:
+    2012-04-04 initial release.
