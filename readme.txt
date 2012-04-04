@@ -28,21 +28,21 @@ How to use ? :
     BucketMedian(clip c, int "radius", int "min", int "max")
 
     clip :
-        supported only planar formats (YV12, YV24, YV16, Y8).
-        and, this filter process Y plane only.
+        Supported only planar formats (YV12, YV24, YV16, YV411, Y8).
+        And, this filter process only Y plane.
 
     radius (1 to 255, default: 1 (3x3)):
         The neighborhood pixel radius to reference.
-        box size is (radius*2+1) * (radius*2+1)
+        Box size is (radius*2+1) * (radius*2+1).
 
     min (0 to 254, default: 0):
-        threshold of low pix value.
-        if source's value is lower than this, the pix is not processed.
-       
+        Threshold of low pix value.
+        If source's value is lower than this, the pix is not processed.
+
 
     max (1 to 255, default:255):
         Threshold of high pix value.
-        if source's value is higher than this, the pix is not processed.
+        If source's value is higher than this, the pix is not processed.
 
 FAQ :
     Q: Why does this filter make my video blurry as hell ?
