@@ -16,7 +16,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 
 What's this ? :
-    BucketMedian is an implementation of spatial median fileter
+    BucketMedian is an implementation of spatial median filter
     adapting bucket(counting) sort algorithm.
 
 Requirement:
