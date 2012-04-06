@@ -22,77 +22,83 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #pragma warning(disable:4996)
 
 class BucketMedian : public GenericVideoFilter {
-    PVideoFrame src, dst;
+
     int r;
-    int th_min;
-    int th_max;
+    int th;
+    BYTE th_min;
+    BYTE th_max;
 
 public:
-    BucketMedian(PClip _child, const int radius, const int min, const int max, IScriptEnvironment* env);
+    BucketMedian(PClip _child, const int radius, const int thresh, const int min, const int max, IScriptEnvironment* env);
     ~BucketMedian() { };
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
 };
 
 BucketMedian::
-BucketMedian(PClip _child, const int radius, const int min, const int max, IScriptEnvironment* env) : GenericVideoFilter(_child)
+BucketMedian(PClip _child, const int radius, const int thresh, const int min, const int max, IScriptEnvironment* env) : GenericVideoFilter(_child)
 {
     if (!vi.IsPlanar())
         env->ThrowError("BucketMedian: this clip is not planar format.");
     r = radius;
-    th_min = min;
-    th_max = max;
+    th = thresh;
+    th_min = (BYTE)min;
+    th_max = (BYTE)max;
+
 }
 
 PVideoFrame __stdcall BucketMedian::GetFrame(int n, IScriptEnvironment* env)
 {
     PVideoFrame src = child->GetFrame(n, env);
     PVideoFrame dst = env->NewVideoFrame(vi);
-
     int plane = PLANAR_Y;
-    const int count = ((2 * r + 1) * (2 * r + 1)) >> 1;
     int width = dst->GetRowSize(plane);
     int height = dst->GetHeight(plane);
 
     int src_pitch = src->GetPitch(plane);
-    const BYTE* ptr_r = src->GetReadPtr(plane);
+    const BYTE* src_origin = src->GetReadPtr(plane);
+    BYTE* src_read = (BYTE*)src_origin;
 
     int dst_pitch = dst->GetPitch(plane);
-    BYTE* ptr_w = dst->GetWritePtr(plane);
+    BYTE* dst_origin = dst->GetWritePtr(plane);
 
-    for (int pos_y = 0; pos_y < height; pos_y++) {
-        for (int pos_x = 0; pos_x < width; pos_x++) {
+    const int count = (((2 * r + 1) * (2 * r + 1)) >> 1) + 1;
 
-            int pix = pos_x + src_pitch * pos_y;
-            if (*(ptr_r + pix) < th_min || *(ptr_r + pix) > th_max) {
-                *(ptr_w + (pos_x + dst_pitch * pos_y)) = *(ptr_r + pix);
+    for (int pos_y = 0; pos_y < height; pos_y++, dst_origin += dst_pitch, src_read += src_pitch) {
+        BYTE* write = dst_origin;
+        BYTE* read = src_read;
+        for (int pos_x = 0; pos_x < width; pos_x++, write++, read++) {
+
+            if (*read < th_min || *read > th_max) {
+                *write = *read;
                 continue;
             }
 
             int bucket[256] = {0};
+
             for (int y = pos_y - r; y <= pos_y + r; y++) {
                 for (int x = pos_x - r; x <= pos_x + r; x++) {
                     int xx = x < 0 ? 0 : x >= width  ? width - 1 : x;
                     int yy = y < 0 ? 0 : y >= height ? height - 1 : y;
-                    bucket[*(ptr_r + xx + src_pitch * yy)]++;
+                    (*(bucket + *(src_origin + xx + src_pitch * yy)))++;
                 }
             }
 
             int cnt = count;
-            unsigned median = 0;
+            int median = -1;
             do {
-                cnt -= bucket[median++];
-            } while (cnt >= 0);
-            *(ptr_w + pos_x + dst_pitch * pos_y) = (BYTE)(median - 1);
+                cnt -= bucket[++median];
+            } while (cnt > 0);
+            *write = abs(median - *read) <= th ? (BYTE)median : *read;
         }
     }
 
     if (!vi.IsY8()) {
-        while (plane != PLANAR_V) {
-            plane = (plane == PLANAR_Y) ? PLANAR_U : PLANAR_V;
-            env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane),
-                        src->GetReadPtr(plane), src->GetPitch(plane),
-                        dst->GetRowSize(plane), dst->GetHeight(plane));
-        }
+        env->BitBlt(dst->GetWritePtr(PLANAR_U), dst->GetPitch(PLANAR_U),
+                    src->GetReadPtr(PLANAR_U), src->GetPitch(PLANAR_U),
+                    dst->GetRowSize(PLANAR_U), dst->GetHeight(PLANAR_U));
+        env->BitBlt(dst->GetWritePtr(PLANAR_V), dst->GetPitch(PLANAR_V),
+                    src->GetReadPtr(PLANAR_V), src->GetPitch(PLANAR_V),
+                    dst->GetRowSize(PLANAR_V), dst->GetHeight(PLANAR_V));
     }
 
     return dst;
@@ -102,22 +108,24 @@ AVSValue __cdecl CreateBucketMedian(AVSValue args, void* user_data, IScriptEnvir
 {
     const int radius = args[1].AsInt(1);
     if (radius < 1 || radius > 255)
-        env->ThrowError("BacketMedian: invalid setting, out of 0 < radius < 256");
-
-    const int min = args[2].AsInt(0);
+        env->ThrowError("BucketMedian: invalid setting, out of 0 < radius < 256");
+    const int thresh = args[2].AsInt(1);
+    if (thresh < 1)
+        env->ThrowError("BucketMedian: thresh needs to be 1 or higher.");
+    const int min = args[3].AsInt(0);
     if (min < 0 || min > 254)
-        env->ThrowError("BacketMedian: invalid setting, out of 0 <= min < 255");
-    const int max = args[3].AsInt(255);
+        env->ThrowError("BucketMedian: invalid setting, out of 0 <= min < 255");
+    const int max = args[4].AsInt(255);
     if (max < 1 || max > 255)
-        env->ThrowError("BacketMedian: invalid setting, out of 0 < max <= 255");
+        env->ThrowError("BucketMedian: invalid setting, out of 0 < max <= 255");
     if (min >= max)
-        env->ThrowError("BacketMedian: invalid setting, min requires lower than max");
+        env->ThrowError("BucketMedian: invalid setting, min requires lower than max");
 
-    return new BucketMedian(args[0].AsClip(), radius, min, max, env);
+    return new BucketMedian(args[0].AsClip(), radius, thresh, min, max, env);
 }
 
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env)
 {
-    env->AddFunction("BucketMedian", "c[radius]i[min]i[max]i", CreateBucketMedian, 0);
+    env->AddFunction("BucketMedian", "c[radius]i[thresh]i[min]i[max]i", CreateBucketMedian, 0);
     return "BucketMedian - Author: Oka Motofumi";
 }

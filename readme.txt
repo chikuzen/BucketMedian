@@ -25,15 +25,21 @@ Requirement:
 
 How to use ? :
 
-    BucketMedian(clip c, int "radius", int "min", int "max")
+    BucketMedian(clip c, int "radius", int "threash", int "min", int "max")
 
     clip :
         Supported only planar formats (YV12, YV24, YV16, YV411, Y8).
-        And, this filter process only Y plane.
+        And, this filter process only luma plane.
 
     radius (1 to 255, default: 1 (3x3)):
-        The neighborhood pixel radius to reference.
+        The radius of the neighborhood pixel referred to in order to calculate a median.
+        It will become heavy if this value is made high.
         Box size is (radius*2+1) * (radius*2+1).
+
+    thresh (1 or higher, default: 1):
+        Threshold of which determines whether to change a pixel value into a median.
+        new = abstract(median - old) < thresh ? median : old
+        (new:filtered pix value, old:src pix value)
 
     min (0 to 254, default: 0):
         Threshold of low pix value.
@@ -58,4 +64,5 @@ FAQ :
     A: https://github.com/chikuzen/BucketMedian/
 
 changelog:
-    2012-04-04 initial release.
+    2012-04-04(0.1.0) initial release.
+    2012-04-06(0.2.0) add "thresh" parameter.
