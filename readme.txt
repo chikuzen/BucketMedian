@@ -38,7 +38,7 @@ How to use ? :
 
     thresh (1 or higher, default: 1):
         Threshold of which determines whether to change a pixel value into a median.
-        new = abstract(median - old) < thresh ? median : old
+        new = absolute(median - old) < thresh ? median : old
         (new:filtered pix value, old:src pix value)
 
     min (0 to 254, default: 0):
@@ -51,9 +51,6 @@ How to use ? :
         If source's value is higher than this, the pix is not processed.
 
 FAQ :
-    Q: Why does this filter make my video blurry as hell ?
-    A: Because this is a median filter.
-
     Q: Why is this filter slow like administration of Japan ?
     A: Patches welcome.
 
