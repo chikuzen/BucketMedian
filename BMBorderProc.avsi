@@ -7,5 +7,5 @@ function BMBorderProc(clip c, int "r", int "th", int "min", int "max")
     w = c.width() + r * 2
     h = c.height() + r * 2
     
-    return c.PointResize(w, h, -r, -r, w, h).BucketMedian(r, th, min, max).Crop(r, r, -r, -r)
+    return c.PointResize(w, h, -r, -r, w, h).BucketMedian(r, th, min, max).Crop(c.width(), c,height(), r, r, -r, -r)
 }
