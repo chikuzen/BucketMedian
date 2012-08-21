@@ -53,23 +53,24 @@ PVideoFrame __stdcall BucketMedian::GetFrame(int n, IScriptEnvironment* env)
     int plane = PLANAR_Y;
     int width = dst->GetRowSize(plane);
     int height = dst->GetHeight(plane);
-
     int src_pitch = src->GetPitch(plane);
-    const BYTE* src_origin = src->GetReadPtr(plane);
-    BYTE* src_read = (BYTE*)src_origin;
-
+    const BYTE* srcp = src->GetReadPtr(plane);
     int dst_pitch = dst->GetPitch(plane);
-    BYTE* dst_origin = dst->GetWritePtr(plane);
-
+    BYTE* dstp = dst->GetWritePtr(plane);
     const int count = (((2 * r + 1) * (2 * r + 1)) >> 1) + 1;
 
-    for (int pos_y = 0; pos_y < height; pos_y++, dst_origin += dst_pitch, src_read += src_pitch) {
-        BYTE* write = dst_origin;
-        BYTE* read = src_read;
-        for (int pos_x = 0; pos_x < width; pos_x++, write++, read++) {
+    env->BitBlt(dstp, dst_pitch, srcp, src_pitch, width, r);
+    env->BitBlt(dstp + dst_pitch * (height - r), dst_pitch, srcp + src_pitch * (height - r), src_pitch, width, r);
+    env->BitBlt(dstp + dst_pitch * r, dst_pitch, srcp + src_pitch * r, src_pitch, r, height - r * 2);
+    env->BitBlt(dstp + dst_pitch * r + width - r, dst_pitch, srcp + src_pitch * r + width - r, src_pitch, r, height - r * 2);
 
-            if (*read < th_min || *read > th_max) {
-                *write = *read;
+    for (int pos_y = r, proc_h = height - r; pos_y < proc_h; pos_y++) {
+        int read = pos_y * src_pitch + r;
+        int write = pos_y * dst_pitch + r;
+        for (int pos_x = r, proc_w = width - r; pos_x < proc_w; pos_x++, read++, write++) {
+            BYTE src_pix = srcp[read];
+            if (src_pix < th_min || src_pix > th_max) {
+                dstp[write] = src_pix;
                 continue;
             }
 
@@ -77,9 +78,7 @@ PVideoFrame __stdcall BucketMedian::GetFrame(int n, IScriptEnvironment* env)
 
             for (int y = pos_y - r; y <= pos_y + r; y++) {
                 for (int x = pos_x - r; x <= pos_x + r; x++) {
-                    int xx = x < 0 ? 0 : x >= width  ? width - 1 : x;
-                    int yy = y < 0 ? 0 : y >= height ? height - 1 : y;
-                    (*(bucket + *(src_origin + xx + src_pitch * yy)))++;
+                    bucket[srcp[x + src_pitch * y]]++;
                 }
             }
 
@@ -88,7 +87,7 @@ PVideoFrame __stdcall BucketMedian::GetFrame(int n, IScriptEnvironment* env)
             do {
                 cnt -= bucket[++median];
             } while (cnt > 0);
-            *write = abs(median - *read) <= th ? (BYTE)median : *read;
+            dstp[write] = abs(median - src_pix) <= th ? (BYTE)median : src_pix;
         }
     }
 
