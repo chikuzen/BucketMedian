@@ -63,3 +63,4 @@ FAQ :
 changelog:
     2012-04-04(0.1.0) initial release.
     2012-04-06(0.2.0) add "thresh" parameter.
+    2012-08-21(0.3.0) remove border processing, and add BMBorderProc.avsi.
